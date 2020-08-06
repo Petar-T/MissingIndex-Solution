@@ -11,7 +11,7 @@ Function MissingIndexes-Create                  #v1.0
 ```
 **Steps : <br/>**
 
-**#1 : Init collection database **
+#1 : **Init collection database **
 ```powershell
 
 MissingIndexes-Check-CollectionDB -DataWarehouseServer Petar_T -DataWarehouseDatabase 'SQL_Datawarehouse' -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
