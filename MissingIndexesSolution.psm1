@@ -780,18 +780,19 @@ order by Impact DESC" -f $Par1, $Minimal_Impact
    }
 }
 
-<#
+
 Export-ModuleMember -Function MissingIndexes-Collect                 #v1.0
 Export-ModuleMember -Function MissingIndexes-Check-CollectionDB      #v1.0
 Export-ModuleMember -Function MissingIndexes-Index-Valid             #v1.0
 Export-ModuleMember -Function MissingIndexes-Create                  #v1.0
-#>
 
 
+<# Samples:
 #MissingIndexes-Check-CollectionDB -DataWarehouseServer Petar_T -DataWarehouseDatabase 'SQL_Datawarehouse' -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
 
 #MissingIndexes-Collect -DataWarehouseServer Petar_T -DataWarehouseDatabase Tempdb -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
 
 #MissingIndexes-Create -DataWarehouseServer Petar_T 
 
-MissingIndexes-Create -DataWarehouseServer Petar_T -DataWarehouseDatabase TempDB 
+#MissingIndexes-Create -DataWarehouseServer Petar_T -DataWarehouseDatabase TempDB 
+#>
