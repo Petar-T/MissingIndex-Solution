@@ -17,13 +17,13 @@ Function MissingIndexes-Create                  #v1.0
 MissingIndexes-Check-CollectionDB -DataWarehouseServer Petar_T -DataWarehouseDatabase 'SQL_Datawarehouse' -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
 ```
 
-**#2 : collect missing indexes  **
+#2 : **collect missing indexes  **
 ```powershell
 
-MissingIndexes-Collect -DataWarehouseServer Petar_T -DataWarehouseDatabase
+MissingIndexes-Collect -DataWarehouseServer Petar_T 
 ```
 
-**#3 : validate and create missing indexes from collection  **
+#3 : **validate and create missing indexes from collection  **
 ```powershell
 
 MissingIndexes-Create -DataWarehouseServer Petar_T
