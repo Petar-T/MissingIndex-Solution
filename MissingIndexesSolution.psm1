@@ -164,6 +164,7 @@ ORDER BY ((gs.[user_seeks]+gs.[user_scans]) * gs.[avg_total_user_cost] * gs.[avg
                 $cmd.ExecuteNonQuery() | Out-Null
         }
 
+        MissingIndexes-Collect-AdditionalInfo -DataWarehouseServer $DataWarehouseServer -DataWarehouseDatabase $DataWarehouseDatabase
         Write-Host ""
     } 
 
@@ -173,6 +174,80 @@ ORDER BY ((gs.[user_seeks]+gs.[user_scans]) * gs.[avg_total_user_cost] * gs.[avg
 
     Make_LogEntry -DataWarehouseServer $DataWarehouseServer -DataWarehouseDatabase $DataWarehouseDatabase -Message 'User scan!'
 
+}
+
+function MissingIndexes-Collect-AdditionalInfo
+{
+param(
+ [Parameter(Mandatory = $true)]
+        [String]
+        $DataWarehouseServer,
+ [Parameter(Mandatory = $false)]
+        [String]
+        $DataWarehouseDatabase,
+ [Parameter(Mandatory = $false)]
+        [switch]
+        $FullRefresh
+         
+)
+
+if ($DataWarehouseDatabase -eq '')
+    {$DataWarehouseDatabase='SQL_Datawarehouse'}
+
+if (!$PSBoundParameters.ContainsKey('FullRefresh'))
+    {$ScanQry="select distinct Servername, DatabaseName, ObjectID  from [SQL_Datawarehouse].[dbo].[Missing_Indexes] where Total_Rows is Null"}
+    else
+    {$ScanQry="select distinct Servername, DatabaseName, ObjectID  from [SQL_Datawarehouse].[dbo].[Missing_Indexes]"}
+
+$Qry="SELECT tbl.name as TableName,
+	ind.Num_ind,
+	col.Num_col,
+	part.Num_Rows
+FROM  sys.tables tbl 
+INNER JOIN  
+(Select object_id,Count(index_id) as Num_ind from sys.indexes group by object_id ) ind on ind.object_id=Tbl.object_id
+INNER JOIN  
+(Select object_id, Count(column_id) as Num_col from sys.Columns  group by object_id ) col on  col.object_id=tbl.object_id
+INNER JOIN  
+(select Object_id, Sum(rows) as Num_Rows from sys.partitions where index_id <2 group by object_id) part on  part.object_id=tbl.object_id
+WHERE tbl.object_id = "  
+
+    $dist_obj= Invoke-SqlCmd -ServerInstance $DataWarehouseServer -Database $DataWarehouseDatabase -Query $ScanQry
+
+    foreach($row in $dist_obj)
+    {
+       $step_Srv=$row.Item('ServerName')
+       $step_Db=$row.Item('DatabaseName')
+       $step_Id=$row.Item('ObjectID')
+
+        try
+        {
+            $extraInfo= Invoke-Sqlcmd -ServerInstance $step_Srv -Database $step_Db -Query ($Qry  + ($step_Id))
+
+            try
+            {
+                $var_rows=$extraInfo.Num_Rows
+                $var_inds=$extraInfo.Num_Ind
+                $var_cols=$extraInfo.Num_Col
+
+                $upd_qry = "Update [Missing_Indexes] set [Total_Rows]=$var_rows ,[Total_Indexes]=$var_inds, [Total_Columns]=$var_cols where Servername='$step_Srv' and DatabaseName='$step_Db' and ObjectID=$step_Id"
+
+                Invoke-SqlCmd -ServerInstance $DataWarehouseServer -Database $DataWarehouseDatabase -Query $upd_qry
+            }
+            catch [Exception] #exec each row
+            {
+                Write-Warning $_.Exception.Message
+            }
+        }
+        Catch   #exec each srvr
+        {
+                Write-Warning "Problem connecting $srv"
+                #$error[0]
+                #$cmd.CommandText = "INSERT INTO Missing_Index_Collection_Errors (ServerName,Error_Message) VALUES ('$Srv','Error Connecting $srv')"
+                #$cmd.ExecuteNonQuery() | Out-Null
+        }
+        Write-Host "Additional info collected" -ForegroundColor Green
+    } 
 }
 
 function MissingIndexes-Check-CollectionDB
@@ -241,10 +316,13 @@ param(
 	[AvgSystemImpact] [float] NULL,
 	[numberofIncludedFields] [int] NULL,
 	[ProposedIndex_Hash] [nvarchar](32) NULL,
-	[ProposedIndex] [nvarchar](max) NULL
+	[ProposedIndex] [nvarchar](max) NULL,
+    [Total_Rows] [bigint] NULL, 
+    [Total_Indexes] [int] NULL,
+    [Total_Columns] [int] NULL
 ) ON [PRIMARY]
 GO
-CREATE UNIQUE NONCLUSTERED INDEX [IX_Hash] ON [dbo].[Missing_Indexes] ([ProposedIndex_Hash] ASC )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+CREATE UNIQUE NONCLUSTERED INDEX [IX_Hash] ON [dbo].[Missing_Indexes] ([ProposedIndex_Hash] ASC )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 GO"
       Invoke-SqlCmd -ServerInstance $DataWarehouseServer -Database $DataWarehouseDatabase -Query $sqlCreateObj
       Write-host "Table $obj_Name created!" -ForegroundColor Yellow
@@ -511,7 +589,7 @@ try
 
 }
 
-Function MissingIndexes-Index-Valid
+Function MissingIndexes-ValidateIndex
 {
 param(
 [Parameter(Mandatory = $true)]
@@ -645,16 +723,15 @@ ORDER BY ind.index_id"
         if ($indRow.Item('indexed_columns') -eq  $cols)
         {
             $msg="identical index " + $indRow.Item('index_name') + " Found!"
-            Write-Host $msg -ForegroundColor DarkRed
+            Write-Host $msg -ForegroundColor Yellow
+            Read-Host “Press ENTER to continue...”
+            #Write-Host -NoNewLine 'Press any key to continue...';
+            #$null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
             Return
         } 
-
- 
-
+         
        $TotFound=$TotFound+1
     }
-
-    
     
 ##Collect missing indexes from catalog
  
@@ -698,7 +775,7 @@ ORDER BY indexed_columns"
 
     If (($TotFound + $TotMI) -gt 0)
     {
-        Write-Host ($TotFound + $TotMI) -ForegroundColor Green 
+        #Write-Host ($TotFound + $TotMI) -ForegroundColor Green 
          $Indexes_Found_Tbl | Format-Table
     }
     else
@@ -738,12 +815,18 @@ ORDER BY indexed_columns"
 function MissingIndexes-Create
 {
 param(
-[Parameter(Mandatory = $true)]
+ [Parameter(Mandatory = $true)]
         [String]
         $DataWarehouseServer,
  [Parameter(Mandatory = $false)]
         [String]
         $DataWarehouseDatabase,
+ [Parameter(Mandatory = $false)]
+        [String]
+        $TargetServer,
+ [Parameter(Mandatory = $false)]
+        [String]
+        $TargetDatabase,
  [Parameter(Mandatory = $false)]
         [int]
         $TopN=20,
@@ -757,42 +840,41 @@ if ($DataWarehouseDatabase -eq '')
 
 if ($TopN -eq 0){
    $par1=" "}
-   else{
-   $par1=" top {0} " -f $TopN }
+   else{$par1=" top {0} " -f $TopN }
 
+if ($TargetServer -eq ''){
+   $par2=" "}
+   else{$par2=" and ([ServerName]='{0}') " -f $TargetServer }
 
-$Query="
-Select {0}
+if ($TargetDatabase -eq ''){
+   $par3=" "}
+   else{$par3=" and ([DatabaseName]='{0}') " -f $TargetDatabase }
+   
+$Query="Select {0}
 * from [dbo].[Missing_Indexes]
-where Impact > {1} 
-order by Impact DESC" -f $Par1, $Minimal_Impact
-
-
+where Impact > {1}{2}{3} 
+order by Impact DESC" -f $Par1,$Minimal_Impact,$Par2,$Par3
 
   $IndexesFound = Invoke-Sqlcmd -ServerInstance $DataWarehouseServer -Database $DataWarehouseDatabase -Query $Query
 
   foreach ($rowFound in $IndexesFound)
   {
-    
     $rowFound
-    MissingIndexes-Index-Valid -DataWarehouseServer $DataWarehouseServer -DataWarehouseDatabase $DataWarehouseDatabase   -ServerName $rowFound.Item('ServerName') -DBName $rowFound.Item('DatabaseName') -TableName $rowFound.Item('TableName') -Object_ID $rowFound.Item('ObjectID') -EqualityColumns $rowFound.Item('EqualityColumns') -InEqualityColumns $rowFound.Item('InEqualityColumns') -IncludedColumns $rowFound.Item('IncludedColumns') -CreateQuery $rowFound.Item('ProposedIndex') -Ind_Hash $rowFound.Item('ProposedIndex_Hash') 
 
+    MissingIndexes-ValidateIndex -DataWarehouseServer $DataWarehouseServer -DataWarehouseDatabase $DataWarehouseDatabase   -ServerName $rowFound.Item('ServerName') -DBName $rowFound.Item('DatabaseName') -TableName $rowFound.Item('TableName') -Object_ID $rowFound.Item('ObjectID') -EqualityColumns $rowFound.Item('EqualityColumns') -InEqualityColumns $rowFound.Item('InEqualityColumns') -IncludedColumns $rowFound.Item('IncludedColumns') -CreateQuery $rowFound.Item('ProposedIndex') -Ind_Hash $rowFound.Item('ProposedIndex_Hash') 
    }
 }
 
-
-Export-ModuleMember -Function MissingIndexes-Collect                 #v1.0
+Export-ModuleMember -Function MissingIndexes-Collect                 #v1.1
+Export-ModuleMember -Function MissingIndexes-Collect-AdditionalInfo  #v1.1
 Export-ModuleMember -Function MissingIndexes-Check-CollectionDB      #v1.0
-Export-ModuleMember -Function MissingIndexes-Index-Valid             #v1.0
+Export-ModuleMember -Function MissingIndexes-ValidateIndex           #v1.0
 Export-ModuleMember -Function MissingIndexes-Create                  #v1.0
-
 
 <# Samples:
 #MissingIndexes-Check-CollectionDB -DataWarehouseServer Petar_T -DataWarehouseDatabase 'SQL_Datawarehouse' -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
-
 #MissingIndexes-Collect -DataWarehouseServer Petar_T -DataWarehouseDatabase Tempdb -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
-
 #MissingIndexes-Create -DataWarehouseServer Petar_T 
-
 #MissingIndexes-Create -DataWarehouseServer Petar_T -DataWarehouseDatabase TempDB 
 #>
+
