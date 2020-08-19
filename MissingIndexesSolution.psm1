@@ -432,7 +432,7 @@ GO"
 )					
 AS
 SET NOCOUNT ON;
-IF EXISTS(select * from [dbo].[Missing_Indexes] where [ProposedIndex_Hash]=@ProposedIndex_Hash and [Server_Name]=@ServerName)
+IF EXISTS(select * from [dbo].[Missing_Indexes] where [ProposedIndex_Hash]=@ProposedIndex_Hash and [ServerName]=@ServerName)
 	UPDATE [dbo].[Missing_Indexes]
 	SET [Collection_Time] = @Collection_Time , 
        [ServerName] = @ServerName,
@@ -465,7 +465,7 @@ IF EXISTS(select * from [dbo].[Missing_Indexes] where [ProposedIndex_Hash]=@Prop
        [AvgSystemImpact] = @AvgSystemImpact
        --[numberofIncludedFields] = @numberofIncludedFields,
        --[ProposedIndex] = @ProposedIndex 
- WHERE  (([ProposedIndex_Hash] = @ProposedIndex_Hash) and ([Server_Name]=@ServerName))
+ WHERE  (([ProposedIndex_Hash] = @ProposedIndex_Hash) and ([ServerName]=@ServerName))
 ELSE
    insert into [dbo].[Missing_Indexes]
            ([ServerName]
