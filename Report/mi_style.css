@@ -34,15 +34,14 @@ table tbody tr {
 }
 
 table td:nth-child(1),
-table td:nth-child(9),
-table td:nth-child(13)
+table td:nth-child(4)
 {
   color: red;
 }
 
-table td:nth-child(17)
+table td:nth-child(6)
 {
-  color: red;
+  color: blue;
  font-weight: bold
 
 
