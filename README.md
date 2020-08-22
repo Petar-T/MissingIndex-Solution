@@ -9,7 +9,7 @@ Function MissingIndexes-Check-CollectionDB      #v1.2
 Function MissingIndexes-ValidateIndex           #v1.1
 Function MissingIndexes-Create                  #v1.1
 Function MissingIndexes-Collect-AdditionalInfo  #v1.1
-Function MissingIndexes-GetInfo                 #v1.2
+Function MissingIndexes-GetInfo                 #v1.5
 
 ```
 **Steps : <br/>**
