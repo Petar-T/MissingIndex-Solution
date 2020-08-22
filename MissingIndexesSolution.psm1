@@ -592,7 +592,7 @@ try
 
 }
 
-function MissingIndexes-GetInfoNew
+function MissingIndexes-Report
 {
 param(
  [Parameter(Mandatory = $true)]
@@ -609,18 +609,18 @@ param(
 if ($DataWarehouseDatabase -eq '')
     {$DataWarehouseDatabase='SQL_Datawarehouse'}
 
-    #$InfoQry="select ServerName , DatabaseName, Count(ProposedIndex_Hash) as Number_of_Indexes , Sum(Impact) as Total_Impact
-    $InfoQry="select * 
+    $InfoQry="select top 300 * 
                 from Missing_Indexes
                 --group by ServerName , DatabaseName
-                --order by Total_Impact"
+                order by Impact"
  
     $ReportData=Invoke-SqlCmd -ServerInstance $DataWarehouseServer -Database $DataWarehouseDatabase -Query $InfoQry
     $ReportHeader ="<div class='header'><h1></h1></div>"
     $ReportFooter = "<script src=mi_script.js></script>"
     
-    $ReportData |  ConvertTo-Html -CSSUri mi_style.css -Title "Missing indexes Report"  -PreContent "$($ReportHeader)" -PostContent "$($ReportFooter)" | Out-File -Encoding utf8 $ReportFolder\"Missing-Index-Report.htm"
-}
+    $ReportData | Select ServerName, DatabaseName, SchemaName, TableName, FullyQualifiedObjectName, Impact, Total_Rows, Total_Indexes, Total_Columns, UserSeeks, UserScans, UniqueCompiles, AvgTotalUserCost, AvgUserImpact, EqualityColumns, InEqualityColumns, IncludedColumns, ProposedIndex, ProposedIndex_Hash, ServerEdition, EngineEdition, Collection_Time, First_Detected_date, Last_Detected_date, Number_of_Detections, Sqlserver_start_time, LastUserSeekTime, LastUserScanTime, SystemSeeks, SystemScans, LastSystemSeekTime, LastSystemScanTime, AvgTotalSystemCost, AvgSystemImpact, numberofIncludedFields `
+ | ConvertTo-Html -CSSUri mi_style.css -Title "Missing indexes Report"  -PreContent "$($ReportHeader)" -PostContent "$($ReportFooter)" | Out-File -Encoding utf8 $ReportFolder\"Missing-Index-Report.htm"
+ }
 
 Function MissingIndexes-ValidateIndex
 {
@@ -903,7 +903,7 @@ Export-ModuleMember -Function MissingIndexes-Collect-AdditionalInfo  #v1.1
 Export-ModuleMember -Function MissingIndexes-Check-CollectionDB      #v1.2
 Export-ModuleMember -Function MissingIndexes-ValidateIndex           #v1.0
 Export-ModuleMember -Function MissingIndexes-Create                  #v1.0
-Export-ModuleMember -Function MissingIndexes-GetInfo                 #v1.5
+Export-ModuleMember -Function MissingIndexes-Report                  #v1.5
 
 
 <# Samples:
