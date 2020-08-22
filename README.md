@@ -25,8 +25,14 @@ MissingIndexes-Check-CollectionDB -DataWarehouseServer Petar_T -DataWarehouseDat
 
 MissingIndexes-Collect -DataWarehouseServer Petar_T 
 ```
+#3 : **report missing indexes  **
+```powershell
 
-#3 : **validate and create missing indexes from collection  **
+MissingIndexes-GetInfo -DataWarehouseServer Petar_T -DataWarehouseDatabase 'SQL_Datawarehouse' -ReportFolder "C:\Missing_Indexes\Report"
+```
+
+
+#4 : **validate and create missing indexes from collection  **
 ```powershell
 
 MissingIndexes-Create -DataWarehouseServer Petar_T
