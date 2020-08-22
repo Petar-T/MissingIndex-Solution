@@ -248,8 +248,9 @@ WHERE tbl.object_id = "
                 #$cmd.CommandText = "INSERT INTO Missing_Index_Collection_Errors (ServerName,Error_Message) VALUES ('$Srv','Error Connecting $srv')"
                 #$cmd.ExecuteNonQuery() | Out-Null
         }
-        Write-Host "Additional info collected" -ForegroundColor Green
-    } 
+     } 
+
+     Write-Host "Additional info collected" -ForegroundColor Green
 }
 
 function MissingIndexes-Check-CollectionDB
@@ -591,7 +592,7 @@ try
 
 }
 
-function MissingIndexes-GetInfo
+function MissingIndexes-GetInfoNew
 {
 param(
  [Parameter(Mandatory = $true)]
@@ -599,18 +600,26 @@ param(
         $DataWarehouseServer,
  [Parameter(Mandatory = $false)]
         [String]
-        $DataWarehouseDatabase
+        $DataWarehouseDatabase,
+ [Parameter(Mandatory = $false)]
+        [String]
+        $ReportFolder
 )
 
 if ($DataWarehouseDatabase -eq '')
     {$DataWarehouseDatabase='SQL_Datawarehouse'}
 
-    $InfoQry="select ServerName , DatabaseName, Count(ProposedIndex_Hash) as Number_of_Indexes , Sum(Impact) as Total_Impact
+    #$InfoQry="select ServerName , DatabaseName, Count(ProposedIndex_Hash) as Number_of_Indexes , Sum(Impact) as Total_Impact
+    $InfoQry="select * 
                 from Missing_Indexes
-                group by ServerName , DatabaseName
-                order by Total_Impact"
+                --group by ServerName , DatabaseName
+                --order by Total_Impact"
  
-    Invoke-SqlCmd -ServerInstance $DataWarehouseServer -Database $DataWarehouseDatabase -Query $InfoQry
+    $ReportData=Invoke-SqlCmd -ServerInstance $DataWarehouseServer -Database $DataWarehouseDatabase -Query $InfoQry
+    $ReportHeader ="<div class='header'><h1></h1></div>"
+    $ReportFooter = "<script src=mi_script.js></script>"
+    
+    $ReportData |  ConvertTo-Html -CSSUri mi_style.css -Title "Missing indexes Report"  -PreContent "$($ReportHeader)" -PostContent "$($ReportFooter)" | Out-File -Encoding utf8 $ReportFolder\"Missing-Index-Report.htm"
 }
 
 Function MissingIndexes-ValidateIndex
@@ -894,13 +903,14 @@ Export-ModuleMember -Function MissingIndexes-Collect-AdditionalInfo  #v1.1
 Export-ModuleMember -Function MissingIndexes-Check-CollectionDB      #v1.2
 Export-ModuleMember -Function MissingIndexes-ValidateIndex           #v1.0
 Export-ModuleMember -Function MissingIndexes-Create                  #v1.0
-Export-ModuleMember -Function MissingIndexes-GetInfo                 #v1.2
+Export-ModuleMember -Function MissingIndexes-GetInfo                 #v1.5
 
 
 <# Samples:
 #MissingIndexes-Check-CollectionDB -DataWarehouseServer Petar_T -DataWarehouseDatabase 'SQL_Datawarehouse' -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
 #MissingIndexes-Collect -DataWarehouseServer Petar_T -DataWarehouseDatabase Tempdb -ServerList 'C:\Deploy\Query_Repository\SQLServerList.txt'
 #MissingIndexes-Create -DataWarehouseServer Petar_T 
-#MissingIndexes-Create -DataWarehouseServer Petar_T -DataWarehouseDatabase TempDB 
+#MissingIndexes-Create -DataWarehouseServer Petar_T -DataWarehouseDatabase TempDB
+#MissingIndexes-GetInfoNew -DataWarehouseServer Petar_T -DataWarehouseDatabase SQL_Datawarehouse -ReportFolder "C:\Users\petartr\Desktop\POwershell Module PetarT\Report" 
 #>
 
